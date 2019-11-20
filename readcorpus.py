@@ -24,16 +24,14 @@ def main(argv):
 	corpus = open(file)
 	urldata = json.load(corpus, encoding="latin1")
 
-	# analyze data for classification metrics if gather flag is used
-	if "-gather" in sys.argv:
-		gather(urldata)
-	# or test out our current classification on known data
-	elif file == "train.json":
-		gather(urldata)
+	# test out our current classification on known data
+	if file == "train.json":
+		# uncomment to gather data for classification metrics
+		# gather(urldata)
+		test(urldata)
 	# otherwise classify unknown data
 	else:
 		classify(urldata)
-
 	corpus.close()
 
 def gather(urldata):
@@ -114,7 +112,7 @@ def getAvg(urldata, field):
 		if record["malicious_url"] == 1:
 			# get data from field, check for null
 			if record[field] is None:
-				data = 0
+				data = 999999
 			else:
 				data = int(record[field])
 			mCount += 1
@@ -128,7 +126,7 @@ def getAvg(urldata, field):
 		elif record["malicious_url"] == 0:
 			# get data from field, check for null
 			if record[field] is None:
-				data = 0
+				data = 999999
 			else:
 				data = int(record[field])
 			sCount += 1
@@ -152,12 +150,95 @@ def getAvg(urldata, field):
 
 # used to validate classify function on known data
 def test(urldata):
-	malURLs = []
+	knownMalURLs = []
+	guessMalURLs = []
+	allURLs = {}
 
-	# get known malicious URLs
+	# use rules to classify URLs 
 	for record in urldata:
+
+		# get known malicious URLs
 		if record["malicious_url"] == 1:
-			malURLs.append(record["url"])
+			knownMalURLs.append(record["url"])
+
+		# store URL and set initialize score as key to 0		
+		curURL = record["url"]
+		allURLs[curURL] = 0
+
+		# long host length is sketchy
+		if int(record["host_len"]) > 70:
+			allURLs[curURL] += 10
+		elif int(record["host_len"]) > 40:
+			allURLs[curURL] += 5			
+
+		# long urls are sketchy
+		if int(record["url_len"]) > 600:
+			allURLs[curURL] += 10
+		elif int(record["url_len"]) > 100:
+			allURLs[curURL] += 5
+
+		# young domains are sketchy
+		if int(record["domain_age_days"]) < 0:
+			allURLs[curURL] += 20
+		elif int(record["domain_age_days"]) < 400:
+			allURLs[curURL] += 10
+		elif int(record["domain_age_days"]) >= 400:
+			allURLs[curURL] -= 20
+
+		# too many domain tokens are sketchy
+		if int(record["num_domain_tokens"]) > 10:
+			allURLs[curURL] += 10
+
+		# too long a path is sketchy
+		if int(record["path_len"]) > 250:
+			allURLs[curURL] += 10
+
+		# too many path tokens are sketchy
+		if int(record["num_path_tokens"]) > 15:
+			allURLs[curURL] += 10
+
+		# High alexa rank or no rank are sketchy
+		if record["alexa_rank"] is None:
+			allURLs[curURL] += 10
+		elif int(record["alexa_rank"]) > 500000:
+			allURLs[curURL] += 20
+		elif int(record["alexa_rank"]) > 95000:
+			allURLs[curURL] += 10
+		elif int(record["alexa_rank"]) < 500:
+			allURLs[curURL] -= 10
+
+	# print all URLs with score
+#	for key, value in sorted(allURLs.iteritems(), key=lambda (k,v):(v,k), reverse=True):
+#		print "%s\t%s" % (key, value)
+
+	# all URLs past threshold are deemed malicious
+	threshold = 0
+
+	# add all urls past threshold to guessed malicious url list
+	for url in allURLs:
+		if allURLs[url] > threshold:
+			guessMalURLs.append(url)
+
+	correct = 0
+	notMal = 0
+	totalMal = len(knownMalURLs)
+
+	# check which guessed urls are actually malicious
+	for url in guessMalURLs:
+		if url in knownMalURLs:
+			correct += 1
+			knownMalURLs.remove(url)			
+		else:
+			notMal += 1
+
+	missedMal = len(knownMalURLs)
+	
+	# print results
+	print "Targeted %d out of %d URLs as malicious" % (len(guessMalURLs), len(allURLs))
+	print "Correctly removed %d/%d malicious URLs" % (correct, totalMal)
+	print "Incorrectly removed %d safe URLs and missed %d malicious URLs" % (notMal, missedMal)
+
+	
 
 # used to classify unknown URLs 
 def classify(urldata):
