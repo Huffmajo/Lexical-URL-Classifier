@@ -207,6 +207,22 @@ def test(urldata):
 		elif int(record["alexa_rank"]) < 500:
 			allURLs[curURL] -= 10
 
+		# default ports that aren't 80 or 443 are sketchy
+		if int(record["default_port"]) == 80 or int(record["default_port"]) == 443:
+			allURLs[curURL] -= 1
+		else:
+			allURLs[curURL] += 20
+
+		# ports that aren't 80 or 443 are sketchy
+		if int(record["port"]) == 80 or int(record["port"]) == 443:
+			allURLs[curURL] -= 1
+		else:
+			allURLs[curURL] += 20
+
+		# a tld that is an integer is sketchy
+		if isinstance(record["tld"], (int, long)):
+			allURLs[curURL] += 20
+
 	# print all URLs with score
 #	for key, value in sorted(allURLs.iteritems(), key=lambda (k,v):(v,k), reverse=True):
 #		print "%s\t%s" % (key, value)
@@ -238,11 +254,106 @@ def test(urldata):
 	print "Correctly removed %d/%d malicious URLs" % (correct, totalMal)
 	print "Incorrectly removed %d safe URLs and missed %d malicious URLs" % (notMal, missedMal)
 
-	
+	# print missed results
+	for url in knownMalURLs:
+		print url
 
 # used to classify unknown URLs 
 def classify(urldata):
-	print "Not yet implemented"
+	guessMalURLs = []
+	guessSafeURLs = []
+	allURLs = {}
+
+	# use rules to classify URLs 
+	for record in urldata:
+
+		# store URL and set initialize score as key to 0		
+		curURL = record["url"]
+		allURLs[curURL] = 0
+
+		# long host length is sketchy
+		if int(record["host_len"]) > 70:
+			allURLs[curURL] += 10
+		elif int(record["host_len"]) > 40:
+			allURLs[curURL] += 5			
+
+		# long urls are sketchy
+		if int(record["url_len"]) > 600:
+			allURLs[curURL] += 10
+		elif int(record["url_len"]) > 100:
+			allURLs[curURL] += 5
+
+		# young domains are sketchy
+		if int(record["domain_age_days"]) < 0:
+			allURLs[curURL] += 20
+		elif int(record["domain_age_days"]) < 400:
+			allURLs[curURL] += 10
+		elif int(record["domain_age_days"]) >= 400:
+			allURLs[curURL] -= 20
+
+		# too many domain tokens are sketchy
+		if int(record["num_domain_tokens"]) > 10:
+			allURLs[curURL] += 10
+
+		# too long a path is sketchy
+		if int(record["path_len"]) > 250:
+			allURLs[curURL] += 10
+
+		# too many path tokens are sketchy
+		if int(record["num_path_tokens"]) > 15:
+			allURLs[curURL] += 10
+
+		# High alexa rank or no rank are sketchy
+		if record["alexa_rank"] is None:
+			allURLs[curURL] += 10
+		elif int(record["alexa_rank"]) > 500000:
+			allURLs[curURL] += 20
+		elif int(record["alexa_rank"]) > 95000:
+			allURLs[curURL] += 10
+		elif int(record["alexa_rank"]) < 500:
+			allURLs[curURL] -= 10
+
+		# default ports that aren't 80 or 443 are sketchy
+		if int(record["default_port"]) == 80 or int(record["default_port"]) == 443:
+			allURLs[curURL] -= 1
+		else:
+			allURLs[curURL] += 20
+
+		# ports that aren't 80 or 443 are sketchy
+		if int(record["port"]) == 80 or int(record["port"]) == 443:
+			allURLs[curURL] -= 1
+		else:
+			allURLs[curURL] += 20
+
+		# a tld that is an integer is sketchy
+		if isinstance(record["tld"], (int, long)):
+			allURLs[curURL] += 20
+
+	# print all URLs with score
+#	for key, value in sorted(allURLs.iteritems(), key=lambda (k,v):(v,k), reverse=True):
+#		print "%s\t%s" % (key, value)
+
+	# all URLs past threshold are deemed malicious
+	threshold = 0
+
+	# add all urls past threshold to guessed malicious url list
+	for url in allURLs:
+		if allURLs[url] > threshold:
+			guessMalURLs.append(url)
+		else:
+			guessSafeURLs.append(url)
+
+	# print results
+	print "Targeted %d out of %d URLs as malicious" % (len(guessMalURLs), len(allURLs))
+
+	# write results to file
+	resultfile = open("results.txt","w")
+	for url in guessMalURLs:
+		resultfile.write("%s, 1\n" % (url))
+	for url in guessSafeURLs:
+		resultfile.write("%s, 0\n" % (url))
+
+	resultfile.close()
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
