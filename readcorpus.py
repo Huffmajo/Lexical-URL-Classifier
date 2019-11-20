@@ -25,93 +25,143 @@ def main(argv):
 	urldata = json.load(corpus, encoding="latin1")
 
 	# analyze data for classification metrics if gather flag is used
-	if "-train" in sys.argv:
-		train(urldata)
+	if "-gather" in sys.argv:
+		gather(urldata)
 	# or test out our current classification on known data
-	elif "-test" in sys.argv and file == "train.json":
-		test(urldata)
+	elif file == "train.json":
+		gather(urldata)
 	# otherwise classify unknown data
 	else:
 		classify(urldata)
 
 	corpus.close()
 
-# used to gather data for test function
-def train(urldata):
-	domainAgeInfo(urldata)
+def gather(urldata):
+	# print header
+	print "======================================="
+	print "\tMALICIOUS\tSAFE"
+	getAvg(urldata, "host_len")
+	getAvg(urldata, "url_len")
+	getAvg(urldata, "domain_age_days")
+	getAvg(urldata, "num_domain_tokens")
+	getAvg(urldata, "path_len")
+	getAvg(urldata, "num_path_tokens")
+	getAvg(urldata, "alexa_rank")
+	
+	getFrequency(urldata, "default_port")
+	getFrequency(urldata, "port")
+	getFrequency(urldata, "tld")
+	getFrequency(urldata, "alexa_rank")
+	getFrequency(urldata, "file_extension")
+	getFrequency(urldata, "scheme")
+
+# used to gather frequency data for non-int url data
+def getFrequency(urldata, field):
+	# setup variables
+	mURL = {}
+	sURL = {}
+
+	for record in urldata:
+		if record["malicious_url"] == 1:
+			# provide null selection for empty fields
+			if record[field] is None:
+				data = "Null"
+			else:
+				data = record[field]
+			# increment occurance of data if already in dict, otherwise add it
+			if data in mURL:
+				mURL[data] += 1
+			else:
+				mURL[data] = 1
+		elif record["malicious_url"] == 0:
+			# provide null selection for empty fields
+			if record[field] is None:
+				data = "Null"
+			else:
+				data = record[field]
+			# increment occurance of data if already in dict, otherwise add it
+			if data in sURL:
+				sURL[data] += 1
+			else:
+				sURL[data] = 1
+
+
+	# print results
+	print "======================================="
+	print (field.upper())
+	print "===MALICIOUS==="
+	for key, value in sorted(mURL.iteritems(), key=lambda (k,v):(v,k), reverse=True):
+		print "%s\t%s" % (key, value)
+	print "===SAFE==="
+	for key, value in sorted(sURL.iteritems(), key=lambda (k,v):(v,k), reverse=True):
+		print "%s\t%s" % (key, value)
+
+def getAvg(urldata, field):
+	# setup variables
+	mCount = 0
+	mSum = 0
+	mAvg = 0
+	mMax = 0
+	mMin = 999
+	sCount = 0
+	sSum = 0
+	sAvg = 0
+	sMax = 0
+	sMin = 999
+
+	# organize and count safe and malicious urls
+	for record in urldata:
+		if record["malicious_url"] == 1:
+			# get data from field, check for null
+			if record[field] is None:
+				data = 0
+			else:
+				data = int(record[field])
+			mCount += 1
+			mSum += data
+			# check for max and min
+			if data > mMax:
+				mMax = data
+			if data < mMin:
+				mMin = data
+
+		elif record["malicious_url"] == 0:
+			# get data from field, check for null
+			if record[field] is None:
+				data = 0
+			else:
+				data = int(record[field])
+			sCount += 1
+			sSum += data
+			# check for max and min
+			if data > sMax:
+				sMax = data
+			if data < sMin:
+				sMin = data
+			
+	# calculate avg from data
+	mAvg = mSum / mCount
+	sAvg = sSum / sCount
+
+	# print results
+	print "======================================="
+	print (field.upper())
+	print "Max:\t%d\t\t%d" % (mMax, sMax)
+	print "Avg:\t%d\t\t%d" % (mAvg, sAvg)
+	print "Min:\t%d\t\t%d" % (mMin, sMin)
 
 # used to validate classify function on known data
 def test(urldata):
 	malURLs = []
 
 	# get known malicious URLs
-	for record in urldata
+	for record in urldata:
 		if record["malicious_url"] == 1:
 			malURLs.append(record["url"])
 
 # used to classify unknown URLs 
 def classify(urldata):
-
-	for record in urldata: 
-		
-
-def domainAgeInfo(urldata):
-	# setup variables
-	malURLs = {}	
-	safeURLs = {}
-	malCount = 0
-	malSum = 0
-	malAvg = 0
-	malMax = 0
-	malMin = 999
-	safeCount = 0
-	safeSum = 0
-	safeAvg = 0
-	safeMax = 0
-	safeMin = 999
-
-	# organized and count safe and malicious urls
-	for record in urldata:
-		if record["malicious_url"] == 1:
-			# save malicious url and domain age
-			urlAge = int(record["domain_age_days"])
-			malURLs[record["url"]] = urlAge
-			malCount += 1
-			malSum += urlAge
-			# check for max and min
-			if urlAge > malMax:
-				malMax = urlAge
-			if urlAge < malMin:
-				malMin = urlAge
-#			print "Mal URL: %s age: %d" % (str(record["url"]), urlAge)
-
-		elif record["malicious_url"] == 0:
-			# save safe url and domain age
-			urlAge = int(record["domain_age_days"])
-			safeURLs[record["url"]] = urlAge
-			safeCount += 1
-			safeSum += urlAge
-			# check for max and min
-			if urlAge > safeMax:
-				safeMax = urlAge
-			if urlAge < safeMin:
-				safeMin = urlAge
-#			print "Safe URL: %s age: %d" % (str(record["url"]), urlAge)
-			
-	# calculate domain age results
-	malAvg = malSum / malCount
-	safeAvg = safeSum / safeCount
-
-	# print results
-	print "Malicious Stats"
-	print "Max age: %d" % malMax
-	print "Avg age: %d" % malAvg
-	print "Min age: %d" % malMin
-
-	print "Safe Stats"
-	print "Max age: %d" % safeMax
-	print "Avg age: %d" % safeAvg
-	print "Min age: %d" % safeMin
+	print "Not yet implemented"
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
