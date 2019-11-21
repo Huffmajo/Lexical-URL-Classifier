@@ -26,8 +26,8 @@ def main(argv):
 
 	# test out our current classification on known data
 	if file == "train.json":
-		# uncomment to gather data for classification metrics
-		# gather(urldata)
+		# gather data for classification metrics
+		gather(urldata)
 		test(urldata)
 	# otherwise classify unknown data
 	else:
@@ -82,7 +82,6 @@ def getFrequency(urldata, field):
 				sURL[data] += 1
 			else:
 				sURL[data] = 1
-
 
 	# print results
 	print "======================================="
@@ -223,10 +222,6 @@ def test(urldata):
 		if isinstance(record["tld"], (int, long)):
 			allURLs[curURL] += 20
 
-	# print all URLs with score
-#	for key, value in sorted(allURLs.iteritems(), key=lambda (k,v):(v,k), reverse=True):
-#		print "%s\t%s" % (key, value)
-
 	# all URLs past threshold are deemed malicious
 	threshold = 0
 
@@ -329,10 +324,6 @@ def classify(urldata):
 		if isinstance(record["tld"], (int, long)):
 			allURLs[curURL] += 20
 
-	# print all URLs with score
-#	for key, value in sorted(allURLs.iteritems(), key=lambda (k,v):(v,k), reverse=True):
-#		print "%s\t%s" % (key, value)
-
 	# all URLs past threshold are deemed malicious
 	threshold = 0
 
@@ -354,6 +345,8 @@ def classify(urldata):
 		resultfile.write("%s, 0\n" % (url))
 
 	resultfile.close()
+
+	print "Results written to results.txt"
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
